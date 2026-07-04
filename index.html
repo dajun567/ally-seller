@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>卖房价值助手 · Demo</title>
+  <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+      background: #f5f5f7; color: #1a1a1e; -webkit-font-smoothing: antialiased;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #1a73e8, #0d47a1);
+      padding: 16px 16px 14px; color: #fff; position: sticky; top: 0; z-index: 10;
+    }
+    .header h1 { font-size: 18px; font-weight: 600; margin-bottom: 2px; }
+    .header .sub { font-size: 12px; opacity: 0.8; }
+
+    .content { padding: 14px 14px 80px; }
+
+    /* ========== 表单 ========== */
+    .form-card {
+      background: #fff; border-radius: 14px; padding: 18px;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+    }
+    .form-card .field { margin-bottom: 14px; }
+    .form-card .field:last-child { margin-bottom: 0; }
+    .form-card label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 5px; }
+    .form-card select, .form-card input {
+      width: 100%; padding: 10px 12px; border: 1.5px solid #e0e0e0;
+      border-radius: 8px; font-size: 15px; background: #fff;
+      appearance: none; -webkit-appearance: none;
+    }
+    .form-card select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+    .form-card input:focus, .form-card select:focus { border-color: #1a73e8; outline: none; }
+    .form-row { display: flex; gap: 10px; }
+    .form-row .field { flex: 1; }
+    .form-submit {
+      width: 100%; padding: 14px; border: none; border-radius: 10px;
+      background: #1a73e8; color: #fff; font-size: 16px; font-weight: 600;
+      cursor: pointer; margin-top: 16px; transition: opacity 0.2s;
+    }
+    .form-submit:active { opacity: 0.8; }
+    .form-submit:disabled { opacity: 0.5; }
+
+    /* ========== 诊断结果 ========== */
+    .section-title {
+      font-size: 15px; font-weight: 600; margin: 14px 0 10px;
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    .prop-banner {
+      background: #fff; border-radius: 12px; padding: 14px;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.06); display: flex;
+      align-items: center; gap: 14px; margin-bottom: 10px;
+    }
+    .prop-banner .icon { font-size: 32px; }
+    .prop-banner .info { flex: 1; }
+    .prop-banner .info h2 { font-size: 16px; font-weight: 600; }
+    .prop-banner .info .tags {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;
+    }
+    .prop-banner .info .tag {
+      font-size: 11px; padding: 2px 8px; border-radius: 4px;
+      background: #e8f0fe; color: #1a73e8;
+    }
+
+    .score-card {
+      background: #fff; border-radius: 14px; padding: 18px;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.06); margin-bottom: 12px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    .score-ring {
+      width: 76px; height: 76px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; position: relative;
+    }
+    .score-ring svg { position: absolute; transform: rotate(-90deg); }
+    .score-ring .val { font-size: 24px; font-weight: 700; }
+    .score-ring .val small { font-size: 11px; font-weight: 400; }
+    .score-detail { flex: 1; }
+    .score-detail .row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
+    .score-detail .row .l { color: #888; }
+    .score-detail .row .r { font-weight: 500; }
+
+    /* 策略 */
+    .strategy-row {
+      display: flex; gap: 8px; overflow-x: auto;
+      -webkit-overflow-scrolling: touch; scroll-snap-type: x mandatory;
+      padding-bottom: 4px;
+    }
+    .strategy-row::-webkit-scrollbar { display: none; }
+    .strategy-card {
+      flex: 0 0 144px; scroll-snap-align: start;
+      background: #fff; border-radius: 12px; padding: 14px;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+      cursor: pointer; transition: all 0.2s;
+      border: 2px solid transparent; position: relative;
+    }
+    .strategy-card.active { border-color: #1a73e8; box-shadow: 0 2px 16px rgba(26,115,232,0.15); }
+    .strategy-card .emoji { font-size: 22px; margin-bottom: 4px; }
+    .strategy-card .label { font-size: 13px; font-weight: 600; }
+    .strategy-card .price { font-size: 22px; font-weight: 700; color: #1a73e8; margin: 2px 0; }
+    .strategy-card .price small { font-size: 12px; font-weight: 400; color: #888; }
+    .strategy-card .detail { font-size: 11px; color: #888; line-height: 1.4; }
+    .strategy-card .badge {
+      position: absolute; top: -6px; right: -6px;
+      background: #ff6b35; color: #fff; font-size: 10px;
+      padding: 2px 6px; border-radius: 4px; font-weight: 600;
+    }
+    .strategy-card .risk { font-size: 10px; color: #e53935; margin-top: 3px; }
+    .strategy-card.fast { border-color: #e8f5e9; }
+    .strategy-card.fast.active { border-color: #43a047; }
+    .strategy-card.fast .price { color: #43a047; }
+    .strategy-card.normal.active { border-color: #1a73e8; }
+    .strategy-card.profit { border-color: #fff8e1; }
+    .strategy-card.profit.active { border-color: #fb8c00; }
+    .strategy-card.profit .price { color: #fb8c00; }
+
+    .selected-detail {
+      background: #fff; border-radius: 12px; padding: 14px;
+      margin-top: 8px; box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+    }
+    .selected-detail .row {
+      display: flex; justify-content: space-between; padding: 7px 0;
+      border-bottom: 1px solid #f0f0f0; font-size: 14px;
+    }
+    .selected-detail .row:last-child { border: none; }
+    .selected-detail .label { color: #666; }
+    .selected-detail .val { font-weight: 600; }
+    .selected-detail .val.green { color: #43a047; }
+    .selected-detail .val.orange { color: #fb8c00; }
+    .selected-detail .val.blue { color: #1a73e8; }
+
+    /* 图表 */
+    .chart-card {
+      background: #fff; border-radius: 12px; padding: 12px;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+    }
+    .chart-card .chart-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+    #radarChart { width: 100%; height: 200px; }
+
+    /* POI */
+    .poi-item {
+      background: #fff; border-radius: 10px; padding: 11px 14px;
+      margin-bottom: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .poi-item .ico { font-size: 18px; width: 28px; text-align: center; }
+    .poi-item .info { flex: 1; }
+    .poi-item .info .name { font-size: 14px; font-weight: 500; }
+    .poi-item .info .sub { font-size: 11px; color: #888; margin-top: 1px; }
+    .poi-item .dist { font-size: 12px; color: #1a73e8; font-weight: 500; white-space: nowrap; }
+
+    .btn-group { display: flex; gap: 8px; margin-top: 14px; }
+    .btn {
+      flex: 1; padding: 13px; border-radius: 10px; border: none;
+      font-size: 14px; font-weight: 600; cursor: pointer; text-align: center;
+    }
+    .btn:active { opacity: 0.8; }
+    .btn-primary { background: #1a73e8; color: #fff; }
+    .btn-outline { background: #fff; color: #1a73e8; border: 1.5px solid #1a73e8; }
+
+    /* ========== 我的 ========== */
+    .profile-header {
+      background: linear-gradient(135deg, #1a73e8, #0d47a1);
+      margin: -14px -14px 14px; padding: 30px 20px 24px;
+      color: #fff; text-align: center;
+    }
+    .profile-header .avatar {
+      width: 56px; height: 56px; border-radius: 50%; background: rgba(255,255,255,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; margin: 0 auto 8px;
+    }
+    .profile-header .name { font-size: 16px; font-weight: 600; }
+    .profile-header .sub { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+
+    .menu-card {
+      background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      margin-bottom: 10px; overflow: hidden;
+    }
+    .menu-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px; border-bottom: 1px solid #f5f5f5;
+      cursor: pointer; font-size: 14px;
+    }
+    .menu-item:last-child { border: none; }
+    .menu-item .mi-icon { font-size: 18px; width: 24px; text-align: center; }
+    .menu-item .mi-text { flex: 1; }
+    .menu-item .mi-arrow { color: #ccc; font-size: 14px; }
+    .menu-item .mi-badge {
+      background: #e53935; color: #fff; font-size: 10px; padding: 1px 6px;
+      border-radius: 8px; font-weight: 600;
+    }
+    .saved-prop {
+      display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+      border-bottom: 1px solid #f5f5f5;
+    }
+    .saved-prop:last-child { border: none; }
+    .saved-prop .sp-icon { font-size: 24px; }
+    .saved-prop .sp-info { flex: 1; }
+    .saved-prop .sp-name { font-size: 14px; font-weight: 500; }
+    .saved-prop .sp-sub { font-size: 11px; color: #888; }
+    .saved-prop .sp-price { font-size: 15px; font-weight: 700; color: #1a73e8; }
+    .saved-prop .sp-tag {
+      font-size: 10px; padding: 2px 6px; border-radius: 3px;
+      background: #e8f5e9; color: #43a047; font-weight: 600;
+    }
+
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-top: 1px solid #e8e8e8;
+      display: flex; padding: 6px 0 env(safe-area-inset-bottom);
+      box-shadow: 0 -1px 8px rgba(0,0,0,0.04);
+    }
+    .bottom-nav .item {
+      flex: 1; text-align: center; font-size: 10px; color: #888; padding: 4px 0;
+    }
+    .bottom-nav .item.active { color: #1a73e8; }
+    .bottom-nav .item .ico { font-size: 20px; display: block; margin-bottom: 1px; }
+
+    .welcome { text-align: center; padding: 40px 0; }
+    .welcome .big { font-size: 48px; margin-bottom: 12px; }
+    .welcome p { color: #888; font-size: 14px; line-height: 1.6; }
+
+    .edit-btn {
+      text-align: right; font-size: 12px; color: #1a73e8;
+      margin-bottom: 6px; cursor: pointer;
+    }
+
+    /* ========== 追踪 ========== */
+    .stat-row { display: flex; gap: 8px; margin-bottom: 12px; }
+    .stat-card {
+      flex: 1; background: #fff; border-radius: 10px; padding: 12px;
+      text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .stat-card .num { font-size: 22px; font-weight: 700; color: #1a73e8; }
+    .stat-card .num.green { color: #43a047; }
+    .stat-card .num.orange { color: #fb8c00; }
+    .stat-card .lbl { font-size: 11px; color: #888; margin-top: 2px; }
+
+    .timeline { position: relative; padding-left: 20px; }
+    .timeline::before {
+      content: ''; position: absolute; left: 6px; top: 4px; bottom: 4px;
+      width: 2px; background: #e0e0e0; border-radius: 1px;
+    }
+    .tl-item { position: relative; padding: 0 0 14px 14px; }
+    .tl-item:last-child { padding-bottom: 0; }
+    .tl-item::before {
+      content: ''; position: absolute; left: -17px; top: 6px;
+      width: 8px; height: 8px; border-radius: 50%; background: #1a73e8;
+    }
+    .tl-item .date { font-size: 11px; color: #888; }
+    .tl-item .text { font-size: 13px; font-weight: 500; margin-top: 1px; }
+    .tl-item .sub { font-size: 11px; color: #888; }
+
+    .track-chart-box {
+      background: #fff; border-radius: 10px; padding: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04); margin-top: 12px;
+    }
+    .track-chart-box .ctitle { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+    .mini-chart { width: 100%; height: 120px; }
+
+    /* ========== 报告 ========== */
+    .report-preview {
+      background: #fff; border-radius: 10px; padding: 20px 18px;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+    }
+    .report-preview .rp-title {
+      text-align: center; font-size: 18px; font-weight: 700;
+      padding-bottom: 12px; border-bottom: 2px solid #1a73e8; margin-bottom: 12px;
+    }
+    .report-preview .rp-sub { text-align: center; font-size: 11px; color: #888; margin-top: -8px; margin-bottom: 14px; }
+    .report-preview .rp-section { margin-bottom: 14px; }
+    .report-preview .rp-h { font-size: 14px; font-weight: 600; color: #1a73e8; margin-bottom: 6px; }
+    .report-preview .rp-row { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; border-bottom: 1px dashed #f0f0f0; }
+    .report-preview .rp-row:last-child { border: none; }
+    .report-preview .rp-l { color: #666; }
+    .report-preview .rp-r { font-weight: 500; }
+    .report-preview .rp-strategy {
+      display: flex; gap: 6px; margin-top: 4px;
+    }
+    .report-preview .rp-sc {
+      flex: 1; text-align: center; padding: 8px 4px; border-radius: 6px; font-size: 12px;
+    }
+    .report-preview .rp-sc .p { font-size: 18px; font-weight: 700; margin: 2px 0; }
+    .report-preview .rp-sc.g { background: #e8f5e9; color: #43a047; }
+    .report-preview .rp-sc.b { background: #e3f2fd; color: #1a73e8; }
+    .report-preview .rp-sc.o { background: #fff3e0; color: #fb8c00; }
+
+    .report-actions { position: sticky; bottom: 56px; background: #f5f5f7; padding: 8px 0; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- 顶部 -->
+  <div class="header">
+    <h1 v-if="!submitted">🏠 录入我的房源</h1>
+    <h1 v-else>🏠 卖房价值助手</h1>
+    <div class="sub" v-if="submitted">我的房源：{{ form.community }} · {{ form.layout }} · {{ form.area }}㎡</div>
+  </div>
+
+  <!-- ========== Step 1: 录入房源 ========== -->
+  <div class="content" v-if="!submitted">
+    <div class="welcome">
+      <div class="big">📋</div>
+      <p>先录入你的房源信息<br>系统自动分析价值、给出三种卖法</p>
+    </div>
+
+    <div class="form-card">
+      <div class="field">
+        <label>小区名称</label>
+        <input v-model="form.community" placeholder="例如：翡翠城三期" />
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>户型</label>
+          <select v-model="form.layout">
+            <option v-for="l in layoutOptions" :key="l">{{ l }}</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>面积 (㎡)</label>
+          <input type="number" v-model.number="form.area" placeholder="85" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>楼层</label>
+          <select v-model="form.floor">
+            <option v-for="f in floorOptions" :key="f">{{ f }}</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>朝向</label>
+          <select v-model="form.orientation">
+            <option v-for="o in orientationOptions" :key="o">{{ o }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>装修</label>
+          <select v-model="form.decoration">
+            <option v-for="d in decorationOptions" :key="d">{{ d }}</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>建成年代</label>
+          <select v-model="form.year">
+            <option v-for="y in yearOptions" :key="y">{{ y }}</option>
+          </select>
+        </div>
+      </div>
+      <button class="form-submit" @click="submitForm" :disabled="!form.community">
+        🔍 开始诊断
+      </button>
+    </div>
+  </div>
+
+  <!-- ========== Step 2: 诊断结果 ========== -->
+  <div class="content" v-if="submitted && activeTab === 'diagnosis'">
+    <div class="edit-btn" @click="resetForm">← 修改房源信息</div>
+
+    <!-- 房源概要 -->
+    <div class="prop-banner">
+      <div class="icon">🏡</div>
+      <div class="info">
+        <h2>{{ form.community }}</h2>
+        <div class="tags">
+          <span class="tag">{{ form.layout }}</span>
+          <span class="tag">{{ form.area }}㎡</span>
+          <span class="tag">{{ form.floor }}</span>
+          <span class="tag">{{ form.orientation }}</span>
+          <span class="tag">{{ form.decoration }}</span>
+          <span class="tag">{{ result.district }}</span>
+          <span class="tag" style="background:#fff3e0;color:#e65100;">{{ result.rating }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 评分 -->
+    <div class="score-card">
+      <div class="score-ring" :style="{ background: scoreColor + '18' }">
+        <svg width="76" height="76">
+          <circle cx="38" cy="38" r="34" fill="none" stroke="#eee" stroke-width="4"/>
+          <circle cx="38" cy="38" r="34" fill="none" :stroke="scoreColor" stroke-width="4"
+            stroke-dasharray="213.6" :stroke-dashoffset="213.6 - 213.6 * score / 100"
+            stroke-linecap="round"/>
+        </svg>
+        <div class="val" :style="{ color: scoreColor }">{{ score }}<small>分</small></div>
+      </div>
+      <div class="score-detail">
+        <div class="row"><span class="l">板块评级</span><span class="r">{{ result.rating }}</span></div>
+        <div class="row"><span class="l">同户型均价</span><span class="r">{{ formatWan(result.avgPrice) }}</span></div>
+        <div class="row"><span class="l">同板块均价</span><span class="r">{{ formatWan(result.blockAvg) }}</span></div>
+        <div class="row"><span class="l">建成年代</span><span class="r">{{ form.year }}</span></div>
+      </div>
+    </div>
+
+    <!-- 三种卖法 -->
+    <div class="section-title">📊 三种卖法，看看你选哪种</div>
+    <div class="strategy-row">
+      <div class="strategy-card fast" :class="{ active: selectedStrategy === 'fast' }" @click="selectStrategy('fast')">
+        <div class="badge">最快</div>
+        <div class="emoji">🏃</div>
+        <div class="label">极速成交</div>
+        <div class="price">{{ fastPrice }}<small>万</small></div>
+        <div class="detail">7-30天成交</div>
+        <div class="detail" style="color:#43a047;">低于均价 {{ formatPct(fastPct) }}</div>
+        <div class="risk">⚠️ 少卖约 {{ formatWan(fastLoss) }}</div>
+      </div>
+      <div class="strategy-card normal" :class="{ active: selectedStrategy === 'normal' }" @click="selectStrategy('normal')">
+        <div class="emoji">✅</div>
+        <div class="label">正常成交</div>
+        <div class="price">{{ normalPrice }}<small>万</small></div>
+        <div class="detail">30-90天成交</div>
+        <div class="detail" style="color:#1a73e8;">市场公允价</div>
+        <div class="risk" style="color:#888;">—</div>
+      </div>
+      <div class="strategy-card profit" :class="{ active: selectedStrategy === 'profit' }" @click="selectStrategy('profit')">
+        <div class="badge">溢价</div>
+        <div class="emoji">💰</div>
+        <div class="label">利润最大</div>
+        <div class="price">{{ profitPrice }}<small>万</small></div>
+        <div class="detail">90-180天成交</div>
+        <div class="detail" style="color:#fb8c00;">高于均价 {{ formatPct(profitPct) }}</div>
+        <div class="risk">⚠️ 需等有缘人</div>
+      </div>
+    </div>
+
+    <!-- 选中策略详情 -->
+    <div class="selected-detail">
+      <div class="row"><span class="label">策略选择</span><span class="val blue">{{ currentStrategyName }}</span></div>
+      <div class="row"><span class="label">建议挂牌价</span><span class="val orange">{{ currentPrice }} 万</span></div>
+      <div class="row"><span class="label">议价空间</span><span class="val">{{ currentNegotiate }}</span></div>
+      <div class="row"><span class="label">预计成交周期</span><span class="val">{{ currentTime }}</span></div>
+      <div class="row"><span class="label">底价建议</span><span class="val">{{ currentFloor }} 万</span></div>
+    </div>
+
+    <!-- 雷达图 -->
+    <div class="chart-card" style="margin-top:12px;">
+      <div class="chart-title">📈 配套价值分析</div>
+      <div id="radarChart"></div>
+    </div>
+
+    <!-- POI -->
+    <div class="section-title">📍 周边配套</div>
+    <div class="poi-list">
+      <div class="poi-item" v-for="p in pois" :key="p.name">
+        <div class="ico">{{ p.icon }}</div>
+        <div class="info"><div class="name">{{ p.name }}</div><div class="sub">{{ p.sub }}</div></div>
+        <div class="dist">{{ p.dist }}</div>
+      </div>
+    </div>
+
+    <!-- 按钮 -->
+    <div class="btn-group">
+      <button class="btn btn-primary" @click="genReport">📄 生成卖房报告</button>
+      <button class="btn btn-outline" @click="activeTab='competition'">📋 对比同小区</button>
+    </div>
+  </div>
+
+  <!-- ========== 竞品比价（占位） ========== -->
+  <div class="content" v-if="submitted && activeTab === 'competition'">
+    <div class="edit-btn" @click="activeTab = 'diagnosis'">← 返回诊断</div>
+    <div style="text-align:center;padding:30px 0;color:#888;font-size:14px;line-height:1.8;">
+      📊 竞品比价功能开发中<br>
+      将展示同小区/同板块挂牌价分布
+    </div>
+  </div>
+
+  <!-- ========== 我的 ========== -->
+  <div class="content" v-if="activeTab === 'profile'" style="padding:0 0 80px;">
+    <div class="profile-header">
+      <div class="avatar">👤</div>
+      <div class="name">卖房人</div>
+      <div class="sub">已保存 {{ savedProperties.length }} 套房源</div>
+    </div>
+
+    <div style="padding:0 14px;">
+      <div class="section-title" style="margin-top:0;">🏡 我的房源</div>
+      <div class="menu-card">
+        <div class="saved-prop" v-for="sp in savedProperties" :key="sp.name" @click="loadSaved(sp)">
+          <div class="sp-icon">🏠</div>
+          <div class="sp-info">
+            <div class="sp-name">{{ sp.name }}</div>
+            <div class="sp-sub">{{ sp.layout }} · {{ sp.area }}㎡ · {{ sp.district }}</div>
+          </div>
+          <div><div class="sp-price">{{ sp.price }}万</div><div class="sp-tag">{{ sp.strategy }}</div></div>
+        </div>
+        <div class="menu-item" style="justify-content:center;color:#1a73e8;font-weight:500;" @click="activeTab='list'">
+          ＋ 录入新房源
+        </div>
+      </div>
+
+      <div class="section-title">⚙️ 设置</div>
+      <div class="menu-card">
+        <div class="menu-item" @click="alert('支持导入 Excel/CSV 格式的挂牌数据')">
+          <span class="mi-icon">📥</span><span class="mi-text">数据导入</span><span class="mi-arrow">›</span>
+        </div>
+        <div class="menu-item" @click="alert('板块评级数据来自城市地图项目')">
+          <span class="mi-icon">🗺️</span><span class="mi-text">板块数据管理</span><span class="mi-arrow">›</span>
+        </div>
+        <div class="menu-item">
+          <span class="mi-icon">💡</span><span class="mi-text">使用指南</span><span class="mi-arrow">›</span>
+        </div>
+        <div class="menu-item">
+          <span class="mi-icon">ℹ️</span><span class="mi-text">关于</span><span class="mi-arrow">›</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Step 3: 同小区成交追踪 ========== -->
+  <div class="content" v-if="submitted && activeTab === 'track'">
+    <div class="edit-btn" @click="activeTab = 'diagnosis'">← 返回诊断</div>
+
+    <!-- 切换栏 -->
+    <div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling: touch;">
+      <div v-for="opt in trackOptions" :key="opt.key"
+        style="padding:6px 14px;border-radius:6px;font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;"
+        :style="trackScope === opt.key ? {background:'#1a73e8',color:'#fff'} : {background:'#fff',color:'#666'}"
+        @click="trackScope = opt.key">
+        {{ opt.label }}
+      </div>
+    </div>
+
+    <!-- 统计 -->
+    <div class="stat-row">
+      <div class="stat-card"><div class="num green">{{ trackSummary.total }}</div><div class="lbl">近半年成交</div></div>
+      <div class="stat-card"><div class="num orange">{{ trackSummary.avgPrice }}</div><div class="lbl">均价(万)</div></div>
+      <div class="stat-card"><div class="num">{{ trackSummary.avgDays }}</div><div class="lbl">平均成交天数</div></div>
+      <div class="stat-card"><div class="num">{{ trackSummary.avgViews }}</div><div class="lbl">平均带看</div></div>
+    </div>
+
+    <!-- 成交房源列表 -->
+    <div class="section-title">📋 近期成交房源</div>
+    <div v-for="item in filteredTrackItems" :key="item.id" style="margin-bottom:8px;">
+      <!-- 房源卡片 -->
+      <div class="selected-detail" style="cursor:pointer;" @click="item.expanded = !item.expanded">
+        <div class="row">
+          <span class="label">{{ item.layout }} · {{ item.area }}㎡ · {{ item.floor }}</span>
+          <span class="val orange" style="font-size:18px;">{{ item.finalPrice }}<small style="font-size:12px;color:#888;">万</small></span>
+        </div>
+        <div class="row" style="border:none;">
+          <span class="label">
+            <span style="display:inline-flex;gap:4px;flex-wrap:wrap;">
+              <span class="tag" style="background:#e8f5e9;color:#43a047;font-size:11px;">成交</span>
+              <span style="font-size:12px;color:#888;">{{ item.soldDate }}</span>
+              <span style="font-size:12px;color:#888;">挂牌{{ item.listDays }}天</span>
+              <span style="font-size:12px;color:#888;">带看{{ item.views }}次</span>
+            </span>
+          </span>
+          <span class="label" style="font-size:12px;">
+            挂牌 {{ item.listPrice }}万
+            <span v-if="item.listPrice > item.finalPrice" style="color:#e53935;">↓{{ item.listPrice - item.finalPrice }}万</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- 展开详情：调价记录 -->
+      <div v-if="item.expanded" class="track-chart-box" style="margin-top:0;border-radius:0 0 10px 10px;">
+        <div style="font-size:12px;font-weight:600;color:#555;margin-bottom:6px;">📋 调价记录</div>
+        <div class="timeline">
+          <div class="tl-item" v-for="evt in item.priceChanges" :key="evt.date" style="padding-bottom:8px;">
+            <div class="date">{{ evt.date }}</div>
+            <div class="text">{{ evt.text }}</div>
+          </div>
+          <div class="tl-item" style="padding-bottom:0;">
+            <div class="date">{{ item.soldDate }}</div>
+            <div class="text" style="color:#43a047;font-weight:600;">✅ 成交 {{ item.finalPrice }}万</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 无数据提示 -->
+    <div v-if="filteredTrackItems.length === 0" style="text-align:center;padding:30px;color:#888;">
+      暂无同小区成交数据
+    </div>
+  </div>
+
+  <!-- ========== Step 4: 报告预览 ========== -->
+  <div class="content" v-if="submitted && activeTab === 'report'">
+    <div class="edit-btn" @click="activeTab = 'diagnosis'">← 返回诊断</div>
+
+    <div class="report-preview">
+      <div class="rp-title">🏠 二手房价值评估报告</div>
+      <div class="rp-sub">{{ form.community }} · {{ form.layout }} · {{ form.area }}㎡ · {{ reportDate }}</div>
+
+      <div class="rp-section">
+        <div class="rp-h">一、房源概况</div>
+        <div class="rp-row"><span class="rp-l">小区名称</span><span class="rp-r">{{ form.community }}</span></div>
+        <div class="rp-row"><span class="rp-l">户型/面积</span><span class="rp-r">{{ form.layout }} · {{ form.area }}㎡</span></div>
+        <div class="rp-row"><span class="rp-l">楼层/朝向</span><span class="rp-r">{{ form.floor }} · {{ form.orientation }}</span></div>
+        <div class="rp-row"><span class="rp-l">装修情况</span><span class="rp-r">{{ form.decoration }}</span></div>
+        <div class="rp-row"><span class="rp-l">建成年代</span><span class="rp-r">{{ form.year }}</span></div>
+        <div class="rp-row"><span class="rp-l">所属板块</span><span class="rp-r">{{ result.district }}</span></div>
+      </div>
+
+      <div class="rp-section">
+        <div class="rp-h">二、周边配套</div>
+        <div class="rp-row" v-for="p in pois" :key="p.name">
+          <span class="rp-l">{{ p.icon }} {{ p.name }}</span>
+          <span class="rp-r">{{ p.sub }} · {{ p.dist }}</span>
+        </div>
+      </div>
+
+      <div class="rp-section">
+        <div class="rp-h">三、价值评级</div>
+        <div class="rp-row"><span class="rp-l">综合评分</span><span class="rp-r" :style="{ color: scoreColor, fontWeight: 700 }">{{ score }} 分</span></div>
+        <div class="rp-row"><span class="rp-l">板块评级</span><span class="rp-r">{{ result.rating }}</span></div>
+        <div class="rp-row"><span class="rp-l">同户型均价</span><span class="rp-r">{{ result.avgPrice }} 万</span></div>
+        <div class="rp-row"><span class="rp-l">同板块均价</span><span class="rp-r">{{ result.blockAvg }} 万</span></div>
+      </div>
+
+      <div class="rp-section">
+        <div class="rp-h">四、三种卖法对比</div>
+        <div class="rp-strategy">
+          <div class="rp-sc g">
+            <div>🏃 极速</div>
+            <div class="p">{{ fastPrice }}<small style="font-size:12px;">万</small></div>
+            <div>7-30天</div>
+          </div>
+          <div class="rp-sc b">
+            <div>✅ 正常</div>
+            <div class="p">{{ normalPrice }}<small style="font-size:12px;">万</small></div>
+            <div>30-90天</div>
+          </div>
+          <div class="rp-sc o">
+            <div>💰 利润</div>
+            <div class="p">{{ profitPrice }}<small style="font-size:12px;">万</small></div>
+            <div>90-180天</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#888;margin-top:8px;text-align:center;">
+          * 以上价格为估算参考，实际成交价以市场为准
+        </div>
+      </div>
+    </div>
+
+    <div class="report-actions">
+      <div class="btn-group">
+        <button class="btn btn-primary" @click="alert('📄 PDF导出功能开发中~')">📥 导出PDF</button>
+        <button class="btn btn-outline" @click="alert('🔗 分享链接已复制')">🔗 分享报告</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部 -->
+  <div class="bottom-nav">
+    <div class="item" :class="{ active: activeTab === 'list' }" @click="switchTab('list')"><span class="ico">📋</span>房源</div>
+    <div class="item" :class="{ active: activeTab === 'diagnosis' }" @click="switchTab('diagnosis')"><span class="ico">📊</span>诊断</div>
+    <div class="item" :class="{ active: activeTab === 'report' }" @click="switchTab('report')"><span class="ico">📄</span>报告</div>
+    <div class="item" :class="{ active: activeTab === 'track' }" @click="switchTab('track')"><span class="ico">📈</span>追踪</div>
+    <div class="item" :class="{ active: activeTab === 'profile' }" @click="switchTab('profile')"><span class="ico">👤</span>我的</div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, reactive, computed, watch, nextTick } = Vue;
+
+const mockPoiData = {
+  '翡翠城': {
+    district: '东湖板块', rating: 'A级', avgPrice: 178, blockAvg: 165,
+    radar: [85, 78, 92, 70, 88],
+    pois: [
+      { icon: '🚇', name: '东湖公园站', sub: '8号线 · 步行3分钟', dist: '260m' },
+      { icon: '🚇', name: '琉璃场站', sub: '7号线 · 步行10分钟', dist: '780m' },
+      { icon: '🏬', name: '万达广场(锦华店)', sub: '大型购物中心', dist: '400m' },
+      { icon: '🏫', name: '成都七中育才学校', sub: '省重点初中', dist: '500m' },
+      { icon: '🏫', name: '盐道街小学', sub: '省重点小学', dist: '600m' },
+      { icon: '🏥', name: '四川大学华西医院', sub: '三甲医院', dist: '1.2km' },
+      { icon: '🌳', name: '东湖公园', sub: '城市公园 · 约200亩', dist: '300m' },
+    ]
+  },
+  '华润': {
+    district: '万年场板块', rating: 'A级', avgPrice: 195, blockAvg: 175,
+    radar: [90, 82, 75, 65, 72],
+    pois: [
+      { icon: '🚇', name: '双桥路站', sub: '4号线/8号线 · 步行2分钟', dist: '150m' },
+      { icon: '🚇', name: '万年场站', sub: '4号线 · 步行5分钟', dist: '400m' },
+      { icon: '🏬', name: '万象城', sub: '大型购物中心', dist: '200m' },
+      { icon: '🏫', name: '石室小学', sub: '省重点小学', dist: '400m' },
+      { icon: '🏥', name: '成都市第六人民医院', sub: '三甲医院', dist: '800m' },
+      { icon: '🌳', name: '新华公园', sub: '城市公园', dist: '1km' },
+    ]
+  },
+  '仁恒': {
+    district: '攀成钢板块', rating: 'S级', avgPrice: 320, blockAvg: 280,
+    radar: [95, 90, 88, 75, 92],
+    pois: [
+      { icon: '🚇', name: '东大路站', sub: '2号线/8号线 · 步行3分钟', dist: '250m' },
+      { icon: '🏬', name: '成都环贸ICD', sub: '大型购物中心', dist: '350m' },
+      { icon: '🏫', name: '成都七中嘉祥', sub: '省重点学校', dist: '800m' },
+      { icon: '🏫', name: '成师附小', sub: '省重点小学', dist: '500m' },
+      { icon: '🏥', name: '四川大学华西第二医院', sub: '三甲医院', dist: '2km' },
+      { icon: '🌳', name: '塔子山公园', sub: '城市公园 · 约400亩', dist: '600m' },
+    ]
+  }
+};
+const defaultPoi = mockPoiData['翡翠城'];
+
+const app = createApp({
+  setup() {
+    const submitted = ref(false);
+    const activeTab = ref('list');
+    const result = ref(defaultPoi);
+    const score = ref(85);
+    const selectedStrategy = ref('normal');
+    const chartInstance = ref(null);
+
+    // 同小区成交追踪数据
+    const trackScope = ref('community');
+    const trackOptions = computed(() => [
+      { key: 'community', label: '🏘️ ' + form.community },
+      { key: 'district', label: '📍 ' + (result.district || '同板块') },
+    ]);
+
+    const trackData = {
+      '翡翠城': {
+        community: '翡翠城三期',
+        district: '东湖板块',
+        summary: { total: 12, avgPrice: 172, avgDays: 42, avgViews: 15 },
+        items: [
+          { id: 1, layout: '3室2厅', area: 95, floor: '中楼层(15/18F)', finalPrice: 178, listPrice: 185, soldDate: '2026-06-28', listDays: 53, views: 18,
+            priceChanges: [{ date: '06-20', text: '调价 -5 万 185→180' },{ date: '06-25', text: '调价 -2 万 180→178' }] },
+          { id: 2, layout: '3室2厅', area: 102, floor: '高楼层(28/32F)', finalPrice: 186, listPrice: 198, soldDate: '2026-06-15', listDays: 68, views: 24,
+            priceChanges: [{ date: '05-20', text: '调价 -5 万 198→193' },{ date: '06-01', text: '调价 -4 万 193→189' },{ date: '06-10', text: '调价 -3 万 189→186' }] },
+          { id: 3, layout: '2室2厅', area: 82, floor: '低楼层(3/11F)', finalPrice: 155, listPrice: 160, soldDate: '2026-06-08', listDays: 35, views: 12,
+            priceChanges: [{ date: '05-25', text: '调价 -5 万 160→155' }] },
+          { id: 4, layout: '4室2厅', area: 135, floor: '中楼层(12/18F)', finalPrice: 228, listPrice: 240, soldDate: '2026-06-05', listDays: 45, views: 20,
+            priceChanges: [{ date: '05-15', text: '调价 -7 万 240→233' },{ date: '05-28', text: '调价 -5 万 233→228' }] },
+          { id: 5, layout: '3室1厅', area: 88, floor: '高楼层(20/26F)', finalPrice: 165, listPrice: 170, soldDate: '2026-05-20', listDays: 28, views: 9,
+            priceChanges: [{ date: '05-10', text: '调价 -5 万 170→165' }] },
+          { id: 6, layout: '3室2厅', area: 98, floor: '中楼层(10/18F)', finalPrice: 175, listPrice: 178, soldDate: '2026-05-12', listDays: 62, views: 21,
+            priceChanges: [{ date: '04-20', text: '调价 -3 万 178→175' }] },
+        ]
+      },
+      '华润': {
+        community: '华润二十四城',
+        district: '万年场板块',
+        summary: { total: 18, avgPrice: 188, avgDays: 38, avgViews: 16 },
+        items: [
+          { id: 7, layout: '3室2厅', area: 108, floor: '中楼层(18/32F)', finalPrice: 205, listPrice: 218, soldDate: '2026-06-25', listDays: 48, views: 22,
+            priceChanges: [{ date: '06-10', text: '调价 -8 万 218→210' },{ date: '06-20', text: '调价 -5 万 210→205' }] },
+          { id: 8, layout: '2室2厅', area: 85, floor: '低楼层(5/18F)', finalPrice: 165, listPrice: 172, soldDate: '2026-06-18', listDays: 32, views: 14,
+            priceChanges: [{ date: '06-05', text: '调价 -7 万 172→165' }] },
+          { id: 9, layout: '4室2厅', area: 140, floor: '高楼层(26/32F)', finalPrice: 250, listPrice: 265, soldDate: '2026-06-10', listDays: 55, views: 28,
+            priceChanges: [{ date: '05-20', text: '调价 -10 万 265→255' },{ date: '06-01', text: '调价 -5 万 255→250' }] },
+        ]
+      },
+      '仁恒': {
+        community: '仁恒滨河湾',
+        district: '攀成钢板块',
+        summary: { total: 8, avgPrice: 305, avgDays: 55, avgViews: 20 },
+        items: [
+          { id: 10, layout: '4室2厅', area: 165, floor: '中楼层(16/30F)', finalPrice: 350, listPrice: 370, soldDate: '2026-06-20', listDays: 72, views: 30,
+            priceChanges: [{ date: '05-15', text: '调价 -10 万 370→360' },{ date: '06-01', text: '调价 -5 万 360→355' },{ date: '06-15', text: '调价 -5 万 355→350' }] },
+          { id: 11, layout: '3室2厅', area: 130, floor: '低楼层(6/18F)', finalPrice: 280, listPrice: 298, soldDate: '2026-06-12', listDays: 60, views: 25,
+            priceChanges: [{ date: '05-20', text: '调价 -10 万 298→288' },{ date: '06-05', text: '调价 -8 万 288→280' }] },
+        ]
+      }
+    };
+    const currentTrackKey = ref('翡翠城');
+
+    // Calculate filtered data based on trackScope
+    const filteredTrackItems = computed(() => {
+      const key = currentTrackKey.value;
+      const data = trackData[key];
+      if (!data) return [];
+      return data.items.map(i => ({ ...i, expanded: false }));
+    });
+    const trackSummary = computed(() => {
+      const key = currentTrackKey.value;
+      const data = trackData[key];
+      return data ? data.summary : { total: 0, avgPrice: 0, avgDays: 0, avgViews: 0 };
+    });
+
+    const reportDate = new Date().toLocaleDateString('zh-CN');
+
+    const layoutOptions = ['1室1厅','2室1厅','2室2厅','3室1厅','3室2厅','4室2厅','4室3厅','5室2厅以上'];
+    const floorOptions = ['低楼层(1-6层)','中楼层(7-15层)','高楼层(16-30层)','顶层'];
+    const orientationOptions = ['东','南','西','北','东南','西南','东北','西北','南北通透'];
+    const decorationOptions = ['毛坯','简装','精装','豪装'];
+    const yearOptions = ['2000年以前','2000-2005年','2006-2010年','2011-2015年','2016-2020年','2021年以后'];
+
+    const savedProperties = [
+      { name: '翡翠城三期', layout: '3室2厅', area: 98, district: '东湖板块', price: 178, strategy: '正常成交', key: '翡翠城' },
+      { name: '华润二十四城', layout: '4室2厅', area: 128, district: '万年场板块', price: 220, strategy: '极速成交', key: '华润' },
+    ];
+
+    function loadSaved(sp) {
+      form.community = sp.name;
+      form.layout = sp.layout;
+      form.area = sp.area;
+      setTimeout(() => submitForm(), 100);
+    }
+
+    const form = reactive({
+      community: '', layout: '3室2厅', area: 98, floor: '中楼层(7-15层)',
+      orientation: '南', decoration: '精装', year: '2011-2015年'
+    });
+
+    function submitForm() {
+      if (!form.community.trim()) return;
+      // match mock
+      const q = form.community.trim().toLowerCase();
+      let match = null;
+      for (const key in mockPoiData) {
+        if (q.includes(key) || mockPoiData[key].district.includes(q)) { match = mockPoiData[key]; break; }
+      }
+      result.value = match || defaultPoi;
+
+      // score adjusted by building year
+      let baseScore = (match || defaultPoi).radar.reduce((a,b)=>a+b,0) / 5;
+      const yearIdx = yearOptions.indexOf(form.year);
+      const yearFactor = 1 + (5 - yearIdx) * 0.01; // newer = slightly higher
+      score.value = Math.round(Math.min(100, baseScore * yearFactor));
+
+      submitted.value = true;
+      activeTab.value = 'diagnosis';
+      selectedStrategy.value = 'normal';
+      nextTick(() => initChart());
+    }
+
+    function resetForm() { submitted.value = false; activeTab.value = 'list'; }
+
+    function switchTab(tab) {
+      if (tab === 'profile') { activeTab.value = 'profile'; return; }
+      if (tab === 'list' && !submitted.value) { activeTab.value = 'list'; return; }
+      if (tab === 'list' && submitted.value) { resetForm(); return; }
+      if (!submitted.value && tab !== 'list') return;
+      activeTab.value = tab;
+      if (tab === 'track') {
+        // Update track scope when entering tracking tab
+        const key = Object.keys(trackData).find(k => form.community.includes(k)) || '翡翠城';
+        currentTrackKey.value = key;
+        trackScope.value = 'community';
+      }
+      nextTick(() => {
+        if (tab === 'diagnosis' && submitted.value) initChart();
+      });
+    }
+
+    const basePrice = computed(() => {
+      // Base price from community data
+      const bp = result.value.avgPrice;
+      // Floor adjustment
+      const floorMap = { '低楼层(1-6层)': 0.97, '中楼层(7-15层)': 1.03, '高楼层(16-30层)': 1.00, '顶层': 0.95 };
+      const floorAdj = floorMap[form.floor] || 1.0;
+      // Orientation adjustment
+      const orientMap = { '南': 1.02, '南北通透': 1.05, '东南': 1.01, '东': 0.99, '西南': 0.99, '西': 0.97, '东北': 0.97, '北': 0.95, '西北': 0.95 };
+      const orientAdj = orientMap[form.orientation] || 1.0;
+      // Decoration adjustment
+      const decorMap = { '毛坯': 0.92, '简装': 0.97, '精装': 1.02, '豪装': 1.06 };
+      const decorAdj = decorMap[form.decoration] || 1.0;
+      return Math.round(bp * floorAdj * orientAdj * decorAdj);
+    });
+
+    const fastPrice = computed(() =>  Math.round(basePrice.value * 0.92));
+    const normalPrice = computed(() => basePrice.value);
+    const profitPrice = computed(() => Math.round(basePrice.value * 1.08));
+    const fastPct = computed(() => (1 - 0.92) * 100);
+    const profitPct = computed(() => (1.08 - 1) * 100);
+    const fastLoss = computed(() => basePrice.value - fastPrice.value);
+
+    const currentStrategyName = computed(() => {
+      return { fast: '🏃 极速成交', normal: '✅ 正常成交', profit: '💰 利润最大' }[selectedStrategy.value];
+    });
+    const currentPrice = computed(() => {
+      return { fast: fastPrice.value, normal: normalPrice.value, profit: profitPrice.value }[selectedStrategy.value];
+    });
+    const currentNegotiate = computed(() => {
+      return { fast: '1-2%（已是底价）', normal: '3-5%（预留议价空间）', profit: '8-12%（慢慢谈）' }[selectedStrategy.value];
+    });
+    const currentTime = computed(() => {
+      return { fast: '7-30 天', normal: '30-90 天', profit: '90-180 天' }[selectedStrategy.value];
+    });
+    const currentFloor = computed(() => {
+      const pct = { fast: 0.98, normal: 0.95, profit: 0.88 }[selectedStrategy.value];
+      return Math.round(currentPrice.value * pct);
+    });
+
+    const scoreColor = computed(() => {
+      if (score.value >= 85) return '#43a047'; if (score.value >= 70) return '#1a73e8';
+      if (score.value >= 50) return '#fb8c00'; return '#e53935';
+    });
+
+    const pois = computed(() => result.value.pois || []);
+
+    function selectStrategy(key) { selectedStrategy.value = key; }
+
+    function formatWan(v) { return v + ' 万'; }
+    function formatPct(v) { return v.toFixed(0) + '%'; }
+
+    function initChart() {
+      const el = document.getElementById('radarChart');
+      if (!el) return;
+      if (chartInstance.value) chartInstance.value.dispose();
+      const chart = echarts.init(el);
+      chartInstance.value = chart;
+      chart.setOption({
+        radar: {
+          indicator: [{ name: '🚇 交通', max: 100 },{ name: '🏬 商业', max: 100 },
+            { name: '🏫 教育', max: 100 },{ name: '🏥 医疗', max: 100 },{ name: '🌳 环境', max: 100 }],
+          center: ['50%','50%'], radius: '65%',
+          axisName: { fontSize: 10, color: '#666' },
+          splitArea: { areaStyle: { color: ['rgba(26,115,232,0.02)','rgba(26,115,232,0.04)'] } },
+        },
+        series: [{
+          type: 'radar',
+          data: [{ value: result.value.radar, name: '配套评分', areaStyle: { color: 'rgba(26,115,232,0.15)' } }],
+          lineStyle: { color: '#1a73e8', width: 2 }, itemStyle: { color: '#1a73e8' },
+        }],
+      });
+    }
+
+    function genReport() { activeTab.value = 'report'; }
+
+    return { submitted, activeTab, form, result, score, selectedStrategy, scoreColor, pois,
+      layoutOptions, floorOptions, orientationOptions, decorationOptions, yearOptions,
+      fastPrice, normalPrice, profitPrice, fastPct, profitPct, fastLoss,
+      currentStrategyName, currentPrice, currentNegotiate, currentTime, currentFloor,
+      trackOptions, trackScope, filteredTrackItems, trackSummary, reportDate, savedProperties,
+      submitForm, resetForm, selectStrategy, switchTab, loadSaved, formatWan, formatPct, genReport };
+  }
+});
+
+app.mount('#app');
+</script>
+</body>
+</html>
