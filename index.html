@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>卖房价值助手 · Demo</title>
+  <title>Ally · 卖房价值助手</title>
   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
   <style>
@@ -17,7 +17,7 @@
       background: linear-gradient(135deg, #1a73e8, #0d47a1);
       padding: 16px 16px 14px; color: #fff; position: sticky; top: 0; z-index: 10;
     }
-    .header h1 { font-size: 18px; font-weight: 600; margin-bottom: 2px; }
+    .header h1 { font-size: 18px; font-weight: 600; margin-bottom: 2px; letter-spacing: 1px; }
     .header .sub { font-size: 12px; opacity: 0.8; }
 
     .content { padding: 14px 14px 80px; }
@@ -299,8 +299,8 @@
 <div id="app">
   <!-- 顶部 -->
   <div class="header">
-    <h1 v-if="!submitted">🏠 录入我的房源</h1>
-    <h1 v-else>🏠 卖房价值助手</h1>
+    <h1 v-if="!submitted">🏠 Ally · 录入房源</h1>
+    <h1 v-else>🏠 Ally · 卖房价值助手</h1>
     <div class="sub" v-if="submitted">我的房源：{{ form.community }} · {{ form.layout }} · {{ form.area }}㎡</div>
   </div>
 
