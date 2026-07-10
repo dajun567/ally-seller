@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>成都初中学区分布 - Ally</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'PingFang SC', sans-serif; }
+  #map { width: 100vw; height: 100vh; }
+  .legend {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    z-index: 1000; background: rgba(255,255,255,.93);
+    backdrop-filter: blur(8px); border-radius: 10px; padding: 10px 16px;
+    display: flex; align-items: center; gap: 12px; font-size: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.1); flex-wrap: wrap; justify-content: center;
+  }
+  .legend .item { display: flex; align-items: center; gap: 4px; }
+  .legend .dot { width: 16px; height: 16px; border-radius: 3px; }
+  .info {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    z-index: 1000; background: rgba(255,255,255,.95);
+    backdrop-filter: blur(8px); border-radius: 10px; padding: 10px 18px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.1);
+    text-align: center; font-size: 14px; max-width: 90vw;
+  }
+  .info h1 { font-size: 16px; font-weight: 600; }
+  .info .sub { font-size: 12px; color: #888; margin-top: 2px; }
+  .info .count { color: #1a73e8; font-weight: 700; }
+
+  .amap-container img { display: none; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="info" id="info">
+  <h1>🏫 成都初中学区分布</h1>
+  <div class="sub">加载中...</div>
+</div>
+
+<div class="legend">
+  <div class="item"><div class="dot" style="background:#E07701"></div>第一梯队</div>
+  <div class="item"><div class="dot" style="background:#FFAA01"></div>第二梯队</div>
+  <div class="item"><div class="dot" style="background:#FFCA00"></div>第三梯队</div>
+  <div class="item"><div class="dot" style="background:#FFDF64"></div>第四梯队</div>
+  <div class="item"><div class="dot" style="background:#9BC2E6"></div>未评级</div>
+</div>
+
+<script src="https://webapi.amap.com/maps?v=2.0&key=d1f15ad3fdf0c704434eaf23c7c18698"></script>
+<script>
+const map = new AMap.Map('map', {
+  center: [104.07, 30.62],
+  zoom: 10,
+  mapStyle: 'amap://styles/light',
+});
+
+const GEOJSON_URL = 'https://dajun567.github.io/ally-seller/chengdu_middle_school_districts.json';
+
+const scoreColors = {
+  '第一梯队': '#E07701',
+  '第二梯队': '#FFAA01',
+  '第三梯队': '#FFCA00',
+  '第四梯队': '#FFDF64',
+};
+
+fetch(GEOJSON_URL)
+  .then(r => r.json())
+  .then(data => {
+    const features = data.features || [];
+    let rendered = 0;
+    const bounds = new AMap.Bounds(Math.random(), Math.random(), Math.random(), Math.random());
+    bounds['northEast'] = new AMap.LngLat(103.5, 30.2);
+    bounds['southWest'] = new AMap.LngLat(104.6, 31.0);
+
+    features.forEach(f => {
+      const props = f.properties || {};
+      const name = props.label || '';
+      const score = props.score || '';
+      const color = scoreColors[score] || '#9BC2E6';
+
+      try {
+        const rings = f.geometry.coordinates;
+        if (!rings || rings.length === 0) return;
+
+        const coords = rings[0];
+        if (!coords || coords.length < 3) return;
+
+        // Build path, filtering out any NaN
+        const path = [];
+        coords.forEach(c => {
+          const lng = parseFloat(c[0]);
+          const lat = parseFloat(c[1]);
+          if (!isNaN(lng) && !isNaN(lat) && isFinite(lng) && isFinite(lat)) {
+            path.push([lng, lat]);
+          }
+        });
+
+        if (path.length < 3) return;
+
+        const polygon = new AMap.Polygon({
+          path: path,
+          fillColor: color,
+          fillOpacity: 0.35,
+          strokeColor: color,
+          strokeWeight: 1.5,
+          strokeOpacity: 0.7,
+        });
+
+        polygon.on('click', () => {
+          document.getElementById('info').innerHTML = `
+            <h1>🏫 ${name}</h1>
+            <div class="sub">
+              梯队：<b>${score || '未评级'}</b>
+              ${props.states ? ' · ' + props.states : ''}
+            </div>
+          `;
+        });
+
+        polygon.setMap(map);
+        rendered++;
+
+        // Update bounds
+        path.forEach(p => {
+          bounds.extend(new AMap.LngLat(p[0], p[1]));
+        });
+      } catch(e) {
+        // Skip invalid features
+      }
+    });
+
+    document.getElementById('info').innerHTML = `
+      <h1>🏫 成都初中学区分布</h1>
+      <div class="sub">共 <span class="count">${rendered}</span> 个学区 · 点击查看详情</div>
+    `;
+
+    map.setFitView(null, false, [30, 30, 30, 30]);
+  })
+  .catch(e => {
+    document.getElementById('info').innerHTML = `
+      <h1>❌ 加载失败</h1>
+      <div class="sub">${e.message}</div>
+    `;
+  });
+</script>
+</body>
+</html>
