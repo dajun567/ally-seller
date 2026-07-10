@@ -331,6 +331,9 @@ function rebuildMarkers() {
   markers.forEach(function(m) { m.setMap(null); });
   markers = [];
   hospitals.forEach(function(h) { addMarker(h); });
+  setTimeout(function() {
+    try { map.setFitView(null, false, [30, 30, 30, 30]); } catch(e) {}
+  }, 300);
   refreshUI();
 }
 
@@ -342,8 +345,11 @@ function exportData() {
 }
 
 // Start
-initMap();
-loadData();
+function startApp() {
+  initMap();
+  setTimeout(loadData, 500);
+}
+startApp();
 </script>
 </body>
 </html>
