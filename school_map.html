@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>成都初中学区分布 - Ally</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'PingFang SC', sans-serif; }
+  #map { width: 100vw; height: 100vh; }
+  .legend {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    z-index: 1000; background: rgba(255,255,255,.93);
+    backdrop-filter: blur(8px); border-radius: 10px; padding: 10px 16px;
+    display: flex; align-items: center; gap: 12px; font-size: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.1);
+  }
+  .legend .item { display: flex; align-items: center; gap: 4px; }
+  .legend .dot { width: 16px; height: 16px; border-radius: 3px; }
+  .info {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    z-index: 1000; background: rgba(255,255,255,.95);
+    backdrop-filter: blur(8px); border-radius: 10px; padding: 10px 18px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.1);
+    text-align: center; font-size: 14px;
+  }
+  .info h1 { font-size: 16px; font-weight: 600; }
+  .info .sub { font-size: 12px; color: #888; margin-top: 2px; }
+  .info .count { color: #1a73e8; font-weight: 700; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="info">
+  <h1>🏫 成都初中学区分布</h1>
+  <div class="sub">共 <span class="count" id="totalCount">-</span> 个学区 · 数据来源：寻圭云图</div>
+</div>
+
+<div class="legend">
+  <div class="item"><div class="dot" style="background:#E07701"></div>第一梯队</div>
+  <div class="item"><div class="dot" style="background:#FFAA01"></div>第二梯队</div>
+  <div class="item"><div class="dot" style="background:#FFCA00"></div>第三梯队</div>
+  <div class="item"><div class="dot" style="background:#FFDF64"></div>第四梯队</div>
+  <div class="item"><div class="dot" style="background:#9BC2E6"></div>未评级</div>
+</div>
+
+<script src="https://webapi.amap.com/maps?v=2.0&key=d1f15ad3fdf0c704434eaf23c7c18698"></script>
+<script>
+const AMAP_KEY = 'd1f15ad3fdf0c704434eaf23c7c18698';
+
+const map = new AMap.Map('map', {
+  center: [104.07, 30.62],
+  zoom: 10,
+  mapStyle: 'amap://styles/light',
+  layers: [new AMap.TileLayer.Satellite()],
+});
+
+const GEOJSON_URL = 'https://dajun567.github.io/ally-seller/chengdu_middle_school_districts.json';
+
+// Color mapping
+const scoreColors = {
+  '第一梯队': '#E07701',
+  '第二梯队': '#FFAA01',
+  '第三梯队': '#FFCA00',
+  '第四梯队': '#FFDF64',
+};
+
+fetch(GEOJSON_URL)
+  .then(r => r.json())
+  .then(data => {
+    const features = data.features || [];
+    document.getElementById('totalCount').textContent = features.length;
+
+    const bounds = new AMap.Bounds();
+
+    features.forEach(f => {
+      const props = f.properties || {};
+      const score = props.score || '';
+      const color = scoreColors[score] || '#9BC2E6';
+      const name = props.label || '';
+
+      // Convert GeoJSON coordinates to Amap path
+      const coords = f.geometry.coordinates[0];
+      const path = coords.map(c => new AMap.LngLat(c[0], c[1]));
+
+      // Add polygon
+      const polygon = new AMap.Polygon({
+        path: path,
+        fillColor: color,
+        fillOpacity: 0.35,
+        strokeColor: color,
+        strokeWeight: 2,
+        strokeOpacity: 0.8,
+        bubble: true,
+      });
+
+      // Add click info
+      polygon.on('click', () => {
+        const info = document.querySelector('.info');
+        info.innerHTML = `
+          <h1>🏫 ${name}</h1>
+          <div class="sub">
+            梯队：<b>${score || '未评级'}</b>
+            ${props.states ? ' · 状态：' + props.states : ''}
+            ${props.meo ? ' · ' + (JSON.parse(props.meo).年份 || '') : ''}
+          </div>
+        `;
+      });
+
+      polygon.setMap(map);
+
+      // Expand bounds
+      coords.forEach(c => {
+        bounds.extend(new AMap.LngLat(c[0], c[1]));
+      });
+    });
+
+    map.setBounds(bounds);
+  })
+  .catch(e => {
+    document.getElementById('totalCount').textContent = '加载失败: ' + e.message;
+  });
+</script>
+</body>
+</html>
