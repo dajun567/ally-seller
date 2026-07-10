@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>贵阳医院POI坐标检查 - Ally</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; overflow: hidden; }
+  #container { width: 100vw; height: 100vh; position: relative; }
+
+  #panel {
+    position: fixed; top: 12px; left: 12px; z-index: 999;
+    background: rgba(255,255,255,.96); padding: 14px 18px;
+    border-radius: 10px; box-shadow: 0 2px 16px rgba(0,0,0,.15);
+    max-height: calc(100vh - 40px); overflow-y: auto; width: 300px; font-size: 13px;
+  }
+  #panel h2 { font-size: 15px; margin-bottom: 2px; }
+  #panel .st { font-size: 11px; color: #888; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+  .ctrl { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+  .ctrl button {
+    padding: 5px 11px; border: 1px solid #ccc; border-radius: 5px;
+    background: #fff; cursor: pointer; font-size: 12px;
+  }
+  .ctrl button:hover { background: #e8f0fe; }
+  .ctrl button.on { background: #4285f4; color: #fff; }
+  .ctrl button.danger { border-color: #e74c3c; color: #e74c3c; }
+  .ctrl button.danger:hover { background: #fde8e6; }
+
+  .search-box { display: flex; gap: 4px; margin-bottom: 8px; }
+  .search-box input {
+    flex: 1; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;
+  }
+  .search-box button { padding: 5px 10px; border: 1px solid #4285f4; background: #4285f4; color: #fff; border-radius: 4px; cursor: pointer; font-size: 12px; }
+
+  .stats { display: flex; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+  .stats span { font-size: 11px; color: #555; background: #f5f5f5; padding: 2px 8px; border-radius: 3px; }
+  .stats .num { color: #4285f4; font-weight: 600; }
+
+  #list { max-height: calc(100vh - 320px); overflow-y: auto; }
+  .item {
+    padding: 6px 8px; border-bottom: 1px solid #f0f0f0; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; font-size: 12px;
+  }
+  .item:hover { background: #f8f9ff; }
+  .item .dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .item .dot.g3 { background: #e74c3c; }
+  .item .dot.g2 { background: #f39c12; }
+  .item .dot.g1 { background: #27ae60; }
+  .item .dot.g0 { background: #95a5a6; }
+  .item .info { flex: 1; min-width: 0; }
+  .item .info .name { font-weight: 500; }
+  .item .info .addr { font-size: 10px; color: #999; }
+  .item .del {
+    padding: 2px 6px; border: none; border-radius: 3px; background: none;
+    color: #ccc; cursor: pointer; font-size: 14px;
+  }
+  .item .del:hover { color: #e74c3c; }
+
+  .legend {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    z-index: 1000; background: rgba(255,255,255,.92);
+    backdrop-filter: blur(8px); border-radius: 8px; padding: 6px 14px;
+    display: flex; align-items: center; gap: 10px; font-size: 11px;
+    box-shadow: 0 1px 8px rgba(0,0,0,.08);
+  }
+  .legend .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 3px; }
+
+  .badge { display: inline-block; font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-left: 4px; }
+  .badge.a3 { background: #fde8e6; color: #e74c3c; font-weight: 600; }
+  .badge.a2 { background: #fef5e7; color: #f39c12; }
+  .badge.a1 { background: #eafaf1; color: #27ae60; }
+
+  #detail {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    z-index: 1000; background: rgba(255,255,255,.95);
+    backdrop-filter: blur(8px); border-radius: 10px; padding: 12px 18px;
+    box-shadow: 0 2px 16px rgba(0,0,0,.12); display: none;
+    font-size: 13px; min-width: 280px; max-width: 90vw;
+  }
+  #detail .tit { font-weight: 600; margin-bottom: 4px; }
+  #detail .row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; color: #555; }
+  #detail .row .v { color: #333; }
+
+  .amap-container img { display: none; }
+</style>
+</head>
+<body>
+<div id="container"></div>
+
+<div id="panel">
+  <h2>🏥 贵阳医院POI</h2>
+  <div class="st">共 <b id="totalCount">0</b> 个 · 坐标检查 · 可拾取/删除</div>
+  <div class="search-box">
+    <input id="searchInput" placeholder="搜索医院名称..." oninput="filterList()">
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="ctrl">
+    <button onclick="togglePickMode()" id="pickBtn">📍 拾取模式</button>
+    <button onclick="exportData()">💾 导出</button>
+    <button class="danger" onclick="clearAll()">🗑️ 清空显示</button>
+  </div>
+  <div id="list"></div>
+</div>
+
+<div id="detail">
+  <div class="tit" id="dName"></div>
+  <div id="dBody"></div>
+  <div style="margin-top:6px;display:flex;gap:4px;">
+    <button onclick="deleteCurrent()" style="padding:4px 12px;border:1px solid #e74c3c;background:#fff;color:#e74c3c;border-radius:4px;cursor:pointer;font-size:12px;">🗑️ 删除</button>
+    <button onclick="closeDetail()" style="padding:4px 12px;border:1px solid #ccc;background:#fff;border-radius:4px;cursor:pointer;font-size:12px;">✕ 关闭</button>
+  </div>
+</div>
+
+<div class="legend">
+  <span><span class="dot" style="background:#e74c3c"></span>三甲</span>
+  <span><span class="dot" style="background:#f39c12"></span>二级</span>
+  <span><span class="dot" style="background:#27ae60"></span>一级</span>
+  <span><span class="dot" style="background:#95a5a6"></span>未评级</span>
+  <span style="margin-left:8px;font-size:10px;color:#888;">点击标记查看详情</span>
+</div>
+
+<script src="https://webapi.amap.com/maps?v=2.0&key=d1f15ad3fdf0c704434eaf23c7c18698&plugin=AMap.Geocoder"></script>
+<script>
+// Hospital data - will be loaded from JSON
+let hospitals = [];
+let markers = [];
+let map = null;
+let isPicking = false;
+let currentHosp = null;
+const STORAGE_KEY = 'gy_hospitals_data';
+
+const gradeColors = { '三甲':'#e74c3c', '三乙':'#e74c3c', '三级':'#e74c3c', '二甲':'#f39c12', '二乙':'#f39c12', '二级':'#f39c12', '一级':'#27ae60', '一甲':'#27ae60' };
+const gradeClasses = { '三甲':'a3', '三乙':'a3', '三级':'a3', '二甲':'a2', '二乙':'a2', '二级':'a2', '一级':'a1', '一甲':'a1' };
+
+function initMap() {
+  map = new AMap.Map('container', {
+    center: [106.68, 26.57],
+    zoom: 12,
+    mapStyle: 'amap://styles/light',
+  });
+
+  map.on('click', function(e) {
+    if (isPicking) {
+      addHospital(e.lnglat.lat, e.lnglat.lng);
+      isPicking = false;
+      document.getElementById('pickBtn').textContent = '📍 拾取模式';
+      document.getElementById('pickBtn').classList.remove('on');
+    } else {
+      closeDetail();
+    }
+  });
+}
+
+function getGrade(name, type) {
+  var info = (name||'') + '|' + (type||'');
+  if (/三甲|三级甲等/.test(info)) return '三甲';
+  if (/三乙|三级乙等/.test(info)) return '三乙';
+  if (/三级/.test(info)) return '三级';
+  if (/二甲|二级甲等/.test(info)) return '二甲';
+  if (/二乙|二级乙等/.test(info)) return '二乙';
+  if (/二级/.test(info)) return '二级';
+  if (/一甲|一级甲等/.test(info)) return '一甲';
+  if (/一级/.test(info)) return '一级';
+  return '';
+}
+
+function addHospital(lat, lng, name, addr, grade, tel) {
+  if (!name) name = '位置_' + (hospitals.length + 1);
+  if (!addr) addr = '';
+  if (!grade) grade = '';
+  if (!tel) tel = '';
+
+  var h = { name: name, address: addr, lat: lat, lng: lng, grade: grade, tel: tel };
+  hospitals.push(h);
+  addMarker(h);
+  saveData();
+  refreshUI();
+}
+
+function addMarker(h) {
+  var color = gradeColors[h.grade] || '#95a5a6';
+  var marker = new AMap.Marker({
+    position: [h.lng, h.lat],
+    label: { content: '<div style="background:'+color+';color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;">' + h.name + '</div>', direction: 'top', offset: new AMap.Pixel(0, -5) },
+  });
+
+  marker.on('click', function() {
+    showDetail(h);
+  });
+
+  marker.setMap(map);
+  markers.push(marker);
+}
+
+function refreshUI() {
+  document.getElementById('totalCount').textContent = hospitals.length;
+
+  var stats = {};
+  hospitals.forEach(function(h) { stats[h.grade||'未评级'] = (stats[h.grade||'未评级']||0) + 1; });
+  var statsHtml = '';
+  for (var k in stats) {
+    statsHtml += '<span>' + k + ': <b class="num">' + stats[k] + '</b></span>';
+  }
+  document.getElementById('stats').innerHTML = statsHtml;
+
+  filterList();
+}
+
+function filterList() {
+  var q = (document.getElementById('searchInput').value || '').toLowerCase();
+  var filtered = hospitals.filter(function(h) { return h.name.toLowerCase().indexOf(q) > -1; });
+
+  var html = '';
+  filtered.forEach(function(h) {
+    var color = gradeColors[h.grade] || '#95a5a6';
+    var badge = gradeClasses[h.grade] ? '<span class="badge ' + gradeClasses[h.grade] + '">' + h.grade + '</span>' : '';
+    html += '<div class="item" onclick="showDetail(' + hospitals.indexOf(h) + ')">' +
+      '<span class="dot g0" style="background:' + color + '"></span>' +
+      '<div class="info"><div class="name">' + h.name + badge + '</div>' +
+      '<div class="addr">' + (h.address||'').substring(0, 50) + '</div></div>' +
+      '<button class="del" onclick="event.stopPropagation();deleteHosp(' + hospitals.indexOf(h) + ')">✕</button></div>';
+  });
+  document.getElementById('list').innerHTML = html || '<div style="text-align:center;padding:20px;color:#999;">无匹配结果</div>';
+}
+
+function showDetail(index) {
+  if (typeof index === 'object') {
+    // Called from marker click - find hospital by position
+    var markerLat = index.position ? index.position.lat : 0;
+    var markerLng = index.position ? index.position.lng : 0;
+    for (var i = 0; i < hospitals.length; i++) {
+      if (Math.abs(hospitals[i].lat - markerLat) < 0.0001 && Math.abs(hospitals[i].lng - markerLng) < 0.0001) {
+        currentHosp = i;
+        break;
+      }
+    }
+  } else {
+    currentHosp = index;
+  }
+
+  if (currentHosp === null || currentHosp === undefined) return;
+  var h = hospitals[currentHosp];
+  if (!h) return;
+
+  document.getElementById('dName').textContent = '🏥 ' + h.name;
+  var grade = h.grade ? '<span class="badge ' + (gradeClasses[h.grade]||'') + '" style="font-size:12px;">' + h.grade + '</span>' : '<span style="color:#999;">未评级</span>';
+  document.getElementById('dBody').innerHTML =
+    '<div class="row"><span>等级</span><span class="v">' + grade + '</span></div>' +
+    '<div class="row"><span>地址</span><span class="v">' + (h.address||'-') + '</span></div>' +
+    '<div class="row"><span>电话</span><span class="v">' + (h.tel||'-') + '</span></div>' +
+    '<div class="row"><span>经度</span><span class="v">' + h.lng + '</span></div>' +
+    '<div class="row"><span>纬度</span><span class="v">' + h.lat + '</span></div>';
+  document.getElementById('detail').style.display = 'block';
+
+  // Pan to hospital
+  map.setCenter([h.lng, h.lat]);
+}
+
+function deleteHosp(index) {
+  if (!confirm('确定删除「' + hospitals[index].name + '」？')) return;
+  hospitals.splice(index, 1);
+  // Rebuild markers
+  markers.forEach(function(m) { m.setMap(null); });
+  markers = [];
+  hospitals.forEach(function(h) { addMarker(h); });
+  saveData();
+  refreshUI();
+  closeDetail();
+}
+
+function deleteCurrent() {
+  if (currentHosp !== null) deleteHosp(currentHosp);
+}
+
+function closeDetail() {
+  document.getElementById('detail').style.display = 'none';
+  currentHosp = null;
+}
+
+function togglePickMode() {
+  isPicking = !isPicking;
+  var btn = document.getElementById('pickBtn');
+  btn.textContent = isPicking ? '📍 点击地图拾取...' : '📍 拾取模式';
+  if (isPicking) btn.classList.add('on');
+  else btn.classList.remove('on');
+}
+
+function clearAll() {
+  if (!confirm('确定清空地图上所有标记？（数据不会丢失）')) return;
+  markers.forEach(function(m) { m.setMap(null); });
+  markers = [];
+}
+
+function saveData() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(hospitals)); } catch(e) {}
+}
+
+function loadData() {
+  try {
+    var saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      var data = JSON.parse(saved);
+      if (data && data.length > 0) {
+        hospitals = data;
+        return;
+      }
+    }
+  } catch(e) {}
+
+  // Load from JSON file
+  fetch('https://dajun567.github.io/ally-seller/guiyang_hospitals.json')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d && d.length > 0) {
+        hospitals = d;
+        hospitals.forEach(function(h) {
+          if (!h.grade) h.grade = getGrade(h.name, h.type);
+        });
+        rebuildMarkers();
+        refreshUI();
+        saveData();
+      }
+    })
+    .catch(function() {});
+}
+
+function rebuildMarkers() {
+  markers.forEach(function(m) { m.setMap(null); });
+  markers = [];
+  hospitals.forEach(function(h) { addMarker(h); });
+  refreshUI();
+}
+
+function exportData() {
+  var csv = '医院名称,经度,纬度,等级,地址,电话\n' +
+    hospitals.map(function(h) { return '"' + h.name + '",' + h.lng + ',' + h.lat + ',"' + (h.grade||'') + '","' + (h.address||'').replace(/"/g,'""') + '","' + (h.tel||'') + '"'; }).join('\n');
+  var blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8'});
+  var a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='贵阳医院数据.csv'; a.click();
+}
+
+// Start
+initMap();
+loadData();
+</script>
+</body>
+</html>
