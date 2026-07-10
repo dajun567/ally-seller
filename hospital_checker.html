@@ -305,6 +305,8 @@ function loadData() {
       var data = JSON.parse(saved);
       if (data && data.length > 0) {
         hospitals = data;
+        rebuildMarkers();
+        refreshUI();
         return;
       }
     }
